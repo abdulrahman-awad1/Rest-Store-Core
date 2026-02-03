@@ -39,6 +39,7 @@ class EmailVerificationController extends Controller
 
         $user = Auth::guard('user-api')->user();
         $user ->api_token = $token;
+        $user ->update(['email_verified_at'=>now()]);
         $user->notify(new LoginNotification());
         //return token
         return $this->returnData('user', $user,'successfully');  //return json response

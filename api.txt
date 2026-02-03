@@ -1,0 +1,49 @@
+
+دا الموقع ال هننفذ من خلاله اوامر تسطيب ا ب اي   >> https://jwt-auth.readthedocs.io/en/develop/laravel-installation/
+
+https://www.positronx.io/laravel-jwt-authentication-tutorial-user-login-signup-api/#tc_10336_04
+
+
+  
+composer require tymon/jwt-auth <<<<<JWTتسطيب ال 
+
+php artisan vendor:publish --provider="Tymon\JWTAuth\Providers\LaravelServiceProvider" >>Api بينشيئ ملف فيه اعدادات ال التوكين و ال  ,,,  <<<  
+الملف دا موجود داخل ال >>> app > confg >> gwt.php 
+بندخل ع >> env ,  >> api وبنضيف اعدادات ال  
+
+php artisan jwt:secret  >> هتاخد الناتج من الامر دا وتحطه ف >> JWT_SECRET ,,,,, envفي ملف 
+
+ هتحتاج تعدل ع كل موديل بيعمل لوجن زي موديل >> User >>> هتستخدم الموقع ال كتبت اللينك بتاعه فوق عشان تعرف هتعدل ازاي
+
+هتعدل ع ملف ال > app >> confg >> auth  
+
+>>>>>>>>>>>>>>>>>>>>>>  بنعمل التعديلات من لينك الموقع<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+php artisan config:cache >>> envالامر دا بتنفذه بعد ما تضيف اي حاجه ف ملف ال 
+
+
+
+\\///////////////// verification email/////////////////// >> هنا محتاج اعمل فيرفيكيشن ب التوكين بس ومحتاج استخدم التوكين مره واحده
+استخدم دا  https://github.com/ichtrojan/laravel-otp
+ادخل >> config >> app
+php artisan migrate
+
+php artisan make notification verificationNotificat >> ادخل ع الملف ال انشيئ دا وعدل البيانات
+
+
+
+////////////////////login facebook\\\\\\\\\\\\\\\\\\\\\
+كل ال محتاجه هنا اني عمل اكونت فيس بوك و جوجل ديفيلوبر
+composer require laravel/sanctum 
+ php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"
+ادخل عدل ع جدول اليوزر
+php artisan migrate
+composer require laravel/socialite 
+ادخل >> app >> config >> services 
+ادخل ضيف ف ملف >> env
+ php artisan config:cache 
+php artisan cache:clear 
+
+
+
+

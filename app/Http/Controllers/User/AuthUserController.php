@@ -1,209 +1,153 @@
 <?php
-
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\CheckLoginRequest;
-use App\Http\Requests\User\changePasswordeRequest;
-use App\Models\Admin;
 use App\Models\User;
-use App\Notifications\LoginNotification;
-use App\Notifications\ResetPasswordNotification;
-use App\Notifications\verificationNotification;
-use App\trait\apiResponse;
+use App\Models\EmailVerification;
+use App\Resources\UserResource;
+use App\Services\AuthService;
+use App\trait\ApiResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Password;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use Laravel\Socialite\Facades\Socialite;
-use mysql_xdevapi\Exception;
-use Tymon\JWTAuth\Facades\JWTAuth;
 
 class AuthUserController extends Controller
 {
-    use apiResponse;
-   /* public function __construct()
-    {
-        $this->middleware('auth:user-api', ['except' => ['login', 'register']]);
-    }*/
+    use ApiResponse;
+
+    public function __construct(private AuthService $authService) {}
+
     public function register(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|between:2,100',
-            'email' => 'required|string|email|max:100|unique:users',
-            'password' => 'required|string|min:6',
+        $data = $request->validate([
+            'name'     => 'required|string|between:2,100',
+            'email'    => 'required|email|unique:users',
+            'password' => 'required|min:6',
         ]);
-        if ($validator->fails()) {
-            return response()->json($validator->errors()->toJson(), 400);
-        }
-        $user = User::create(array_merge(
-            $validator->validated(),
-            ['password' => bcrypt($request->password)]
-        ));
-        $user->notify(new verificationNotification());
-        return $this->returnData('user', $user,'successfully registered');
 
+        $user = $this->authService->register($data);
+
+        return $this->returnData('user', new UserResource($user), 'User registered successfully');
     }
 
-    public function login(CheckLoginRequest $request)
+    public function verifyEmail(Request $request)
+{
+    $data = $request->validate([
+        'token' => 'required|string'
+    ]);
+
+    $record = EmailVerification::where('token',$data['token'])
+        ->where('expires_at','>',now())
+        ->first();
+
+    if (!$record) {
+        return $this->returnError('VER001','Invalid token');
+    }
+
+    $user = User::where('email',$record->email)->first();
+
+    $user->update([
+        'email_verified_at' => now()
+    ]);
+
+    $record->delete();
+
+    return $this->successMessage('Email verified successfully');
+}
+
+
+    public function login(Request $request)
     {
-        try {
-            $rules = [
-                "email" => "required",
-                "password" => "required"
-
-            ];
-
-            $validator = Validator::make($request->all(), $rules);
-
-            if ($validator->fails()) {
-                $code = $this->returnCodeAccordingToInput($validator);
-                return $this->returnValidationError($code, $validator);
-            }
-
-            //login
-
-            $credentials = $request->only(['email', 'password']);
-
-            $token = Auth::guard('user-api')->attempt($credentials);  //generate token
-
-            if (!$token)
-                return $this->returnError('E001', 'بيانات الدخول غير صحيحة');
-
-            $user = Auth::guard('user-api')->user();
-            $user ->api_token = $token;
-            $user->notify(new LoginNotification());
-            //return token
-            return $this->returnData('user', $user,'successfully');  //return json response
-
-        } catch (\Exception $ex) {
-            return $this->returnError($ex->getCode(), $ex->getMessage());
-        }
-    }
-    public function logFacebook(Request $request){
-        $token = $request->token;
-        $providerUser = Socialite::driver('facebook')->userFromToken($token);
-        $userProviderId = $providerUser->id;
-
-        $user = User::where('provider_name','facebook')->where('provider_id',$userProviderId);
-        if(!$user){
-            $user = User::create([
-                'name'=>$providerUser->name,
-                'provider_name'=>'facebook',
-                'provider_id'=>$userProviderId,
-                'avatar'=>"http://graph.facebook.com/v3.3/$userProviderId/picture?type=large&access_token=$token",
-            ]);
-
-        }
-        $accessToken = $user->createToken('auth_token')->plainTextToken;
-        return response()->json([
-            'status'=>'success',
-            'access_token'=>$accessToken
+        $data = $request->validate([
+            'email'    => 'required|email',
+            'password' => 'required|string',
         ]);
 
-    }
+        $result = $this->authService->login($data);
 
-    public function logout(Request $request){
-        $token = $request->header('token');
-        if ($token){
-            try {
-                JWTAuth::setToken($token)->invalidate(); // destroy token
-            }catch (\Tymon\JWTAuth\Exceptions\TokenInvalidException $e){
-                return $this->returnError('101','some thing went wrong');
-
-            }
-
-            return $this->successMessage('111','logout');
-
+        if (!$result) {
+            return $this->returnError('E001', 'Invalid credentials');
         }
-        else
-            return $this->returnError('101','some thing went wrong');
-    }
-/*auth()->guard('admin-api')->logout();
-return response()->json(['message' => ' successfully signed out']);*/
+        if (isset($result['error'])) {
+            return $this->returnError('E002', $result['error']);
+        }
 
+        return $this->returnData('user', [
+            'user'         => new UserResource($result['user']),
+            'access_token' => $result['token'],
+        ], 'Login successful');
+    }
+
+    public function logFacebook(Request $request)
+    {
+        $request->validate(['token' => 'required|string']);
+
+        $result = $this->authService->facebookLogin($request->token);
+
+        return $this->returnData('user', [
+            'user'         => new UserResource($result['user']),
+            'access_token' => $result['accessToken'],
+        ], 'Facebook login successful');
+    }
+
+    public function logout(Request $request)
+    {
+        $user = $request->user();
+        if ($user) {
+            $user->currentAccessToken()->delete();
+            return $this->successMessage('Logout successful');
+        }
+    
+        return $this->returnError('401', 'Unauthenticated', 401);
+    }
+    
 
     public function forgotPassword(Request $request)
     {
-        $request->validate(['email' => 'required|email']);
+        $data = $request->validate([
+            'email' => 'required|email|exists:users,email',
+        ]);
 
-        $user = User::where('email', $request->email)->first();
+        $user = User::where('email', $data['email'])->first();
+        $this->authService->sendReset($user);
 
-        if (!$user) {
-            // Handle invalid email gracefully
-            return response()->json(['message' => 'Invalid email'], 400);
-        }
-
-      /*  $token = Str::random(60);
-        $user->reset_password_token = $token;
-        $user->save();
-
-        $resetUrl = config('app.url') . '/api/reset-password/' . $token;
-
-        // Use Laravel's Mail or a third-party service to send the email:
-        // ...*/
-        $user->notify(new ResetPasswordNotification());
-
-
-        return response()->json(['message' => 'Password reset link sent successfully']);
+        return $this->successMessage('Password reset link sent');
     }
 
     public function resetPassword(Request $request)
     {
-        $rules = [
-            'token' => 'required|max:6|min:6|Exists:otps',
-            'email' => 'required|string|email|max:100|Exists:users',
+        $data = $request->validate([
+            'token'    => 'required|string|size:6',
+            'email'    => 'required|email',
             'password' => 'required|confirmed|min:8',
-        ];
-        $validator = Validator::make($request->all(), $rules);
+        ]);
 
-        if ($validator->fails()) {
-          //  $code = $this->returnCodeAccordingToInput($validator);
-          //  return $this->returnValidationError($code, $validator);
-            return $this->returnError('',"validation error",);
+        $user = $this->authService->resetPassword($data);
+
+        if (!$user) {
+            return $this->returnError('OTP001', 'Invalid or expired token');
         }
-        $user = User::where('email',$request->email)->first();
-        $user->update(['password'=>Hash::make($request->password)]);
-       // $user->token()->delete;
-        return $this->returnData('change password',$user,'');
 
-
-
-
-
+        return $this->returnData('user', new UserResource($user), 'Password updated successfully');
     }
 
     public function changePassword(Request $request)
     {
-        $this->validate($request, [
-            'current_password' => 'required',
-            'new_password' => 'required',
+        $data = $request->validate([
+            'current_password' => 'required|string',
+            'new_password'     => 'required|string|min:6',
         ]);
 
+        $user = $request->user();
 
-        try {
-
-            $user = JWTAuth::user();
-
-            // Validate current password
-            if (!Hash::check($request->current_password, $user->password)) {
-                throw ValidationException::withMessages([
-                    'current_password' => ['The provided password does not match your current password.'],
-                ]);
-            }
-
-            // Update the user's password
-            $user->password = Hash::make($request->new_password);
-            $user->save();
-
-
-            return response()->json(['message' => 'Password changed successfully!']);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 422);
+        if (!Hash::check($data['current_password'], $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['The provided password does not match your current password.'],
+            ]);
         }
+
+        $updatedUser = $this->authService->changePassword($user, $data);
+
+        return $this->returnData('user', new UserResource($updatedUser), 'Password changed successfully');
     }
 }

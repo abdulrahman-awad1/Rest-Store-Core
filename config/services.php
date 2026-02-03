@@ -33,7 +33,15 @@ return [
     'facebook' => [
         'client_id' => env('FACEBOOK_CLIENT_ID'),
         'client_secret' => env('FACEBOOK_CLIENT_SECRET'),
-        'redirect' => '',
+        'redirect' => 'http://127.0.0.1:8000/api/auth/logFacebook',
+    ],
+
+    'paymob' => [
+        'api_key'              => env('PAYMOB_API_KEY'),
+        'iframe_id_card'            => env('PAYMOB_IFRAME_ID_CARD'),
+        'integration_card'     => env('PAYMOB_INTEGRATION_CARD'),
+        'integration_wallet'   => env('PAYMOB_INTEGRATION_WALLET'),
+        'integration_fawry'    => env('PAYMOB_INTEGRATION_KIOSK'),
     ],
 
 ];

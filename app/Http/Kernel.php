@@ -79,6 +79,8 @@ class Kernel extends HttpKernel
         'lang' => \App\Http\Middleware\lang::class,
         'CheckAdminToken' => \App\Http\Middleware\CheckAdminToken::class,
         'AssignGuard' => \App\Http\Middleware\AssignGuard::class,
-        'auth.guard'=> AssignGuard::class
+        'auth.guard'=> AssignGuard::class,
+        'verified.api' => \App\Http\Middleware\EnsureEmailIsVerified::class,
+
     ];
 }

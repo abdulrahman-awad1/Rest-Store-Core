@@ -42,17 +42,17 @@ return [
         ],
 
         'api' => [
-            'driver' => 'jwt',
+            'driver' => 'sanctum',
             'provider' => 'users',
             'hash' => false,
         ],
 
-        'user-api' => [
-            'driver' => 'jwt',
+        'user-api' => [ 
+            'driver' => 'sanctum',
             'provider' => 'users',
         ],
         'admin-api' => [
-            'driver' => 'jwt',
+            'driver' => 'sanctum',
             'provider' => 'admins',
         ]
 

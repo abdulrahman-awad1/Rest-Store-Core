@@ -5,6 +5,7 @@ use App\Http\Controllers\EmailVerificationController;
 use App\Http\Controllers\LangController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\User\AuthUserController;
+use App\Http\Controllers\User\PaymentController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -36,57 +37,45 @@ Route::group(['middleware'=>['api','ChekUser','lang'],'prefix'=>'lang'],function
     Route::apiResource('language',LangController::class);
 
 });
-Route::group(['middleware'=>'api','prefix'=>'admin'],function (){
-    Route::post('register_admin',[AuthController::class,'register_admin']);
-    Route::post('login_admin',[AuthController::class,'login_admin'])->name('login');
-    Route::group(['middleware'=>'auth.guard:admin-api'],function (){
-        Route::post('profile',function (){
-            return Auth::user();
-        });
 
+// ================= Admin Routes =================
+
+
+Route::prefix('admin')->group(function () {
+
+    // Public routes
+    Route::post('register', [AuthController::class,'register_admin']);
+    Route::post('login', [AuthController::class,'login_admin'])->name('admin.login');
+
+    // Protected routes (requires admin login)
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('logout', [AuthController::class,'logout_admin']);
     });
-
-    Route::post('logout_admin',[AuthController::class,'logout_admin'])->middleware('auth.guard:admin-api');
 });
 
-Route::group(['middleware'=>'api','prefix'=>'user', 'namespace'=>'User'],function (){
-    Route::post('login',[AuthUserController::class,'login'])->name('login');
-    Route::post('logout',[AuthUserController::class,'logout'])->middleware('auth.guard:user-api');
-    Route::post('register',[AuthUserController::class,'register']);
-    Route::post('facebook_login', [AuthUserController::class,'logFacebook'])->name('logFacebook');
-    Route::post('forgotPassword', [AuthUserController::class,'forgotPassword'])->name('forgotPassword');
-    Route::post('resetPassword', [AuthUserController::class,'resetPassword'])->name('resetPassword');
-    Route::post('changePassword', [AuthUserController::class,'changePassword'])->name('changePassword')->middleware('auth.guard:user-api');
-    Route::post('email_verification', [EmailVerificationController::class,'email_verification']);
+// ================= user Routes =================
+
+Route::prefix('user')->group(function () {
+
+    // Public routes
+    Route::post('register', [AuthUserController::class, 'register']);
+    Route::post('login', [AuthUserController::class, 'login'])->name('login');
+    Route::post('facebook_login', [AuthUserController::class, 'logFacebook']);
+    Route::post('forgotPassword', [AuthUserController::class, 'forgotPassword'])->name('forgotPassword');
+    Route::post('resetPassword', [AuthUserController::class, 'resetPassword'])->name('resetPassword');
+    Route::post('verify-email', [AuthUserController::class,'verifyEmail']);
+    Route::post('payments/pay', [PaymentController::class, 'pay'])->name('payments.pay');
+    Route::post('payments/callback', [PaymentController::class, 'callback'])->name('payments.callback');
+    Route::get('payments/redirect', [PaymentController::class, 'redirect'])->name('redirect');
 
 
-    Route::group(['middleware'=>'auth.guard:user-api'],function (){
-        Route::post('profile',function (){
-            return Auth::user();
+
+    // Protected routes (requires user login)
+    Route::middleware(['auth:sanctum','verified.api'])->group(function () {
+        Route::post('logout', [AuthUserController::class,'logout']);
+        Route::post('changePassword', [AuthUserController::class,'changePassword']);
+        Route::get('profile', function(Request $request){
+            return $request->user();
         });
-
     });
-
-});
-
-/*Route::group([
-    'middleware'=>['admin-api','CheckAdminToken:admin-api'], 'prefix'=>'auth'],function (){
-    Route::post('login_admin',[AuthController::class,'login_admin'])->name('login');
-    Route::post('logout_admin',[AuthController::class,'logout_admin']);
-    Route::post('register_admin',[AuthController::class,'register_admin']);
-
-});*/
-
-Route::group([
-    'middleware'=>['user-api',/*'CheckAdminToken:admin-api'*/],
-    'prefix'=>'auth'],function (){
-    Route::post('login',[AuthUserController::class,'login'])->name('login');
-    Route::post('logout',[AuthUserController::class,'logout']);
-    Route::post('register',[AuthUserController::class,'register']);
-    Route::post('facebook_login', [AuthUserController::class,'logFacebook'])->name('logFacebook');
-    Route::post('forgotPassword', [AuthUserController::class,'forgotPassword'])->name('forgotPassword');
-    Route::post('resetPassword', [AuthUserController::class,'resetPassword'])->name('resetPassword');
-    Route::post('changePassword', [AuthUserController::class,'changePassword'])->name('changePassword');
-
-
 });
