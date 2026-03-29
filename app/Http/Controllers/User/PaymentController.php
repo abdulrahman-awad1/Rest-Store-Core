@@ -121,8 +121,7 @@ class PaymentController extends Controller
         'success' => filter_var($request->get('success'), FILTER_VALIDATE_BOOLEAN),
         'order'   => $request->get('order'),
         'id'      => $request->get('id'),
-        'pending' => $request->get('pending'),
-        'query'   => $request->all(),
+        'message' => $request->get('success') ? 'payment success' : 'payment failed',
     ]);
 }
 

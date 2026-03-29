@@ -4,7 +4,7 @@ namespace App\Services;
 
 
 use App\Models\User;
-use App\Models\Otp;
+use Ichtrojan\Otp\Models\Otp;
 use App\Notifications\LoginNotification;
 use App\Notifications\verificationNotification;
 use App\Notifications\ResetPasswordNotification;
@@ -65,27 +65,33 @@ class AuthService
     
 
     public function facebookLogin(string $token)
-    {
-        $providerUser = Socialite::driver('facebook')->userFromToken($token);
+{
+    $providerUser = Socialite::driver('facebook')
+        ->fields(['id','name','email','picture.type(large)'])
+        ->userFromToken($token);
 
-        $user = User::updateOrCreate(
-            [
-                'provider_name' => 'facebook',
-                'provider_id' => $providerUser->id,
-            ],
-            [
-                'name' => $providerUser->name,
-                'email' => $providerUser->email,
-                'avatar' => $providerUser->avatar,
-            ]
-        );
+    $email = $providerUser->email 
+        ?? $providerUser->id . '@facebook.local';
 
-        $user->tokens()->delete();
+    $user = User::updateOrCreate(
+        [
+            'provider_name' => 'facebook',
+            'provider_id'   => $providerUser->id,
+        ],
+        [
+            'name'   => $providerUser->name,
+            'email'  => $email,
+            'avatar' => $providerUser->avatar,
+        ]
+    );
 
-        $accessToken = $user->createToken('auth_token')->plainTextToken;
+    $user->tokens()->delete();
 
-        return compact('user', 'accessToken');
-    }
+    $accessToken = $user->createToken('auth_token')->plainTextToken;
+
+    return compact('user', 'accessToken');
+}
+
 
     public function sendReset(User $user)
     {
@@ -97,8 +103,8 @@ class AuthService
         return DB::transaction(function () use ($data) {
 
             $otp = Otp::where('token', $data['token'])
-                ->where('email', $data['email'])
-                ->where('expires_at', '>', now())
+                ->where('identifier', $data['email'])
+                ->where('validity', '>',  now()->timestamp)
                 ->first();
 
             if (!$otp) {

@@ -33,7 +33,7 @@ return [
     'facebook' => [
         'client_id' => env('FACEBOOK_CLIENT_ID'),
         'client_secret' => env('FACEBOOK_CLIENT_SECRET'),
-        'redirect' => 'http://127.0.0.1:8000/api/auth/logFacebook',
+        'redirect' => 'http://127.0.0.1:8000/api/user/facebook_login',
     ],
 
     'paymob' => [
