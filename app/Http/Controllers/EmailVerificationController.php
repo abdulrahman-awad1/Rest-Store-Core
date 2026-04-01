@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\EmailVerification;
 use App\Models\User;
 use App\Models\Otp;
 use App\Notifications\LoginNotification;
@@ -49,5 +50,30 @@ return $this->returnError($ex->getCode(), $ex->getMessage());
 }
        // $user = Otp::where('email',$request->email)->first();
       //  return $this->successMessage('200','Verified');
+    }
+
+    public function verifyEmail(Request $request)
+    {
+        $data = $request->validate([
+            'token' => 'required|string'
+        ]);
+
+        $record = EmailVerification::where('token',$data['token'])
+            ->where('expires_at','>',now())
+            ->first();
+
+        if (!$record) {
+            return $this->returnError('VER001','Invalid token');
+        }
+
+        $user = User::where('email',$record->email)->first();
+
+        $user->update([
+            'email_verified_at' => now()
+        ]);
+
+        $record->delete();
+
+        return $this->successMessage('Email verified successfully');
     }
 }

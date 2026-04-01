@@ -9,6 +9,7 @@ use App\Notifications\LoginNotification;
 use App\Notifications\verificationNotification;
 use App\Notifications\ResetPasswordNotification;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Support\Facades\DB;
 use App\Models\EmailVerification;
@@ -32,9 +33,9 @@ class AuthService
             'token' => $token,
             'expires_at' => now()->addMinutes(30),
         ]);
-        
+
         $user->notify(new VerifyEmailNotification($token));
-        
+
 
         return $user;
     }
@@ -42,27 +43,27 @@ class AuthService
     public function login(array $data)
     {
         $user = User::where('email', $data['email'])->first();
-    
+
         if (!$user || !Hash::check($data['password'], $user->password)) {
             return null;
         }
-    
+
         if (!$user->email_verified_at) {
             return [
                 'error' => 'Email not verified'
             ];
         }
-    
+
         $user->tokens()->delete();
-    
+
         $token = $user->createToken('auth_token')->plainTextToken;
-    
+
         return [
             'user'  => $user,
             'token' => $token,
         ];
     }
-    
+
 
     public function facebookLogin(string $token)
 {
@@ -70,7 +71,7 @@ class AuthService
         ->fields(['id','name','email','picture.type(large)'])
         ->userFromToken($token);
 
-    $email = $providerUser->email 
+    $email = $providerUser->email
         ?? $providerUser->id . '@facebook.local';
 
     $user = User::updateOrCreate(

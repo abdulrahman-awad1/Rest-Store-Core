@@ -3,7 +3,9 @@
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\EmailVerificationController;
 use App\Http\Controllers\LangController;
+use App\Http\Controllers\PasswordController;
 use App\Http\Controllers\PostController;
+use App\Http\Controllers\SocialAuthController;
 use App\Http\Controllers\User\AuthUserController;
 use App\Http\Controllers\User\PaymentController;
 use Illuminate\Http\Request;
@@ -60,10 +62,10 @@ Route::prefix('user')->group(function () {
     // Public routes
     Route::post('register', [AuthUserController::class, 'register']);
     Route::post('login', [AuthUserController::class, 'login'])->name('login');
-    Route::post('facebook_login', [AuthUserController::class, 'logFacebook']);
-    Route::post('forgotPassword', [AuthUserController::class, 'forgotPassword'])->name('forgotPassword');
-    Route::post('resetPassword', [AuthUserController::class, 'resetPassword'])->name('resetPassword');
-    Route::post('verify-email', [AuthUserController::class,'verifyEmail']);
+    Route::post('facebook_login', [SocialAuthController::class, 'logFacebook']);
+    Route::post('forgotPassword', [PasswordController::class, 'forgotPassword'])->name('forgotPassword');
+    Route::post('resetPassword', [PasswordController::class, 'resetPassword'])->name('resetPassword');
+    Route::post('verify-email', [EmailVerificationController::class,'verifyEmail']);
     Route::post('payments/pay', [PaymentController::class, 'pay'])->name('payments.pay');
     Route::post('payments/callback', [PaymentController::class, 'callback'])->name('payments.callback');
     Route::get('payments/redirect', [PaymentController::class, 'redirect'])->name('redirect');
@@ -73,7 +75,7 @@ Route::prefix('user')->group(function () {
     // Protected routes (requires user login)
     Route::middleware(['auth:sanctum','verified.api'])->group(function () {
         Route::post('logout', [AuthUserController::class,'logout']);
-        Route::post('changePassword', [AuthUserController::class,'changePassword']);
+        Route::post('changePassword', [PasswordController::class,'changePassword']);
         Route::get('profile', function(Request $request){
             return $request->user();
         });
